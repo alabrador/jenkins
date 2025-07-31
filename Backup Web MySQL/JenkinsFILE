@@ -6,7 +6,7 @@ pipeline {
         REMOTE_HOST = '66.94.98.24'
         REMOTE_PORT = '12028'
         REMOTE_TMP = '/tmp'
-        BACKUP_DIR = '/home/backups/mysql'
+        BACKUP_DIR = "${env.WORKSPACE}/backups"
         DATE = "${new Date().format('yyyy-MM-dd_HH-mm-ss')}"
         FILE_NAME = "${DB_NAME}_${DATE}.sql.gz"
     }
