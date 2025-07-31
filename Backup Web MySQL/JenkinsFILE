@@ -1,0 +1,74 @@
+pipeline {
+    agent any
+
+    environment {
+        DB_NAME = 'nombre_base_datos'
+        REMOTE_HOST = '66.94.98.24' // sin usuario, se añade por la credencial SSH
+        REMOTE_TMP = '/tmp'
+        BACKUP_DIR = '/opt/backups/mysql'
+        DATE = "${new Date().format('yyyy-MM-dd_HH-mm-ss')}"
+        FILE_NAME = "${DB_NAME}_${DATE}.sql.gz"
+    }
+
+    triggers {
+        cron('H 2 * * *')
+    }
+
+    stages {
+        stage('Preparar backup local') {
+            steps {
+                sh 'mkdir -p "${BACKUP_DIR}"'
+            }
+        }
+
+        stage('Respaldar vía SSH remota') {
+            steps {
+                sshagent (credentials: ['remote_ssh']) {
+                    withCredentials([usernamePassword(credentialsId: 'mysql_cred', usernameVariable: 'MYSQL_USER', passwordVariable: 'MYSQL_PASS')]) {
+                        sh '''
+                            ssh -o StrictHostKeyChecking=no ${SSH_USERNAME}@${REMOTE_HOST} \\
+                            "mysqldump -u$MYSQL_USER -p$MYSQL_PASS ${DB_NAME} | gzip > ${REMOTE_TMP}/${FILE_NAME}"
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Descargar respaldo') {
+            steps {
+                sshagent (credentials: ['remote_ssh']) {
+                    sh '''
+                        scp -o StrictHostKeyChecking=no ${SSH_USERNAME}@${REMOTE_HOST}:${REMOTE_TMP}/${FILE_NAME} ${BACKUP_DIR}/
+                    '''
+                }
+            }
+        }
+
+        stage('Limpiar respaldo remoto') {
+            steps {
+                sshagent (credentials: ['remote_ssh']) {
+                    sh '''
+                        ssh ${SSH_USERNAME}@${REMOTE_HOST} "rm -f ${REMOTE_TMP}/${FILE_NAME}"
+                    '''
+                }
+            }
+        }
+
+        stage('Limpiar respaldos antiguos') {
+            steps {
+                sh '''
+                    find "${BACKUP_DIR}" -type f -name "*.sql.gz" -mtime +7 -exec rm -f {} \;
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Backup exitoso: ${FILE_NAME}"
+        }
+        failure {
+            echo "❌ Falló el respaldo"
+        }
+    }
+}
