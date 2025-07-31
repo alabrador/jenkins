@@ -31,7 +31,7 @@ pipeline {
                         usernamePassword(credentialsId: 'mysql_cred_apronto', usernameVariable: 'MYSQL_USER', passwordVariable: 'MYSQL_PASS')
                     ]) {
                         sh '''
-                            ssh -p ${REMOTE_PORT} -o StrictHostKeyChecking=no usuario_ssh@${REMOTE_HOST} '
+                            ssh -p ${REMOTE_PORT} -o StrictHostKeyChecking=no root@${REMOTE_HOST} '
                                 mysqldump -u"$MYSQL_USER" -p"$MYSQL_PASS" ${DB_NAME} | gzip > ${REMOTE_TMP}/${FILE_NAME}
                             '
                         '''
