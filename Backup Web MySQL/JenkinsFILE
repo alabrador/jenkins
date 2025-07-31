@@ -41,9 +41,9 @@ pipeline {
         stage('Descargar respaldo') {
             steps {
                 sshagent (credentials: ['remote_ssh_apronto']) {
-                    sh '''
-                        scp -P ${REMOTE_PORT} -o StrictHostKeyChecking=no root@${REMOTE_HOST}:${REMOTE_TMP}/${FILE_NAME} ${BACKUP_DIR}/
-                    '''
+                    sh """
+                        scp -P 12028 -o StrictHostKeyChecking=no root@${REMOTE_HOST}:${REMOTE_TMP}/${FILE_NAME} "${BACKUP_DIR}/"
+                    """
                 }
             }
         }
