@@ -4,6 +4,7 @@ pipeline {
     environment {
         DB_NAME = 'apro_productiondb'
         REMOTE_HOST = '66.94.98.24'
+        REMOTE_PORT = '12028'
         REMOTE_TMP = '/tmp'
         BACKUP_DIR = '/opt/backups/mysql'
         DATE = "${new Date().format('yyyy-MM-dd_HH-mm-ss')}"
@@ -11,23 +12,28 @@ pipeline {
     }
 
     triggers {
-        cron('H 2 * * *')
+        cron('H 2 * * *') // Diariamente alrededor de las 2am
     }
 
     stages {
         stage('Preparar backup local') {
             steps {
-                sh 'mkdir -p "${BACKUP_DIR}"'
+                sh '''
+                    mkdir -p "${BACKUP_DIR}"
+                '''
             }
         }
 
         stage('Respaldar vía SSH remota') {
             steps {
                 sshagent (credentials: ['remote_ssh_apronto']) {
-                    withCredentials([usernamePassword(credentialsId: 'mysql_cred_apronto', usernameVariable: 'MYSQL_USER', passwordVariable: 'MYSQL_PASS')]) {
+                    withCredentials([
+                        usernamePassword(credentialsId: 'mysql_cred_apronto', usernameVariable: 'MYSQL_USER', passwordVariable: 'MYSQL_PASS')
+                    ]) {
                         sh '''
-                            ssh -o StrictHostKeyChecking=no ${SSH_USERNAME}@${REMOTE_HOST} \\
-                            "mysqldump -u$MYSQL_USER -p$MYSQL_PASS ${DB_NAME} | gzip > ${REMOTE_TMP}/${FILE_NAME}"
+                            ssh -p ${REMOTE_PORT} -o StrictHostKeyChecking=no usuario_ssh@${REMOTE_HOST} '
+                                mysqldump -u"$MYSQL_USER" -p"$MYSQL_PASS" ${DB_NAME} | gzip > ${REMOTE_TMP}/${FILE_NAME}
+                            '
                         '''
                     }
                 }
@@ -38,7 +44,7 @@ pipeline {
             steps {
                 sshagent (credentials: ['remote_ssh_apronto']) {
                     sh '''
-                        scp -o StrictHostKeyChecking=no ${SSH_USERNAME}@${REMOTE_HOST}:${REMOTE_TMP}/${FILE_NAME} ${BACKUP_DIR}/
+                        scp -P ${REMOTE_PORT} -o StrictHostKeyChecking=no usuario_ssh@${REMOTE_HOST}:${REMOTE_TMP}/${FILE_NAME} ${BACKUP_DIR}/
                     '''
                 }
             }
@@ -48,7 +54,7 @@ pipeline {
             steps {
                 sshagent (credentials: ['remote_ssh_apronto']) {
                     sh '''
-                        ssh ${SSH_USERNAME}@${REMOTE_HOST} "rm -f ${REMOTE_TMP}/${FILE_NAME}"
+                        ssh -p ${REMOTE_PORT} root@${REMOTE_HOST} "rm -f ${REMOTE_TMP}/${FILE_NAME}"
                     '''
                 }
             }
