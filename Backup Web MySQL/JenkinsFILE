@@ -27,18 +27,16 @@ pipeline {
         stage('Respaldar vía SSH remota') {
             steps {
                 sshagent (credentials: ['remote_ssh_apronto']) {
-                    withCredentials([
-                        usernamePassword(credentialsId: 'mysql_cred_apronto', usernameVariable: 'MYSQL_USER', passwordVariable: 'MYSQL_PASS')
-                    ]) {
-                        sh '''
-                            ssh -p ${REMOTE_PORT} -o StrictHostKeyChecking=no root@${REMOTE_HOST} '
-                                mysqldump -u"$MYSQL_USER" -p"$MYSQL_PASS" ${DB_NAME} | gzip > ${REMOTE_TMP}/${FILE_NAME}
-                            '
-                        '''
+                    withCredentials([usernamePassword(credentialsId: 'mysql_cred_apronto', usernameVariable: 'MYSQL_USER', passwordVariable: 'MYSQL_PASS')]) {
+                    sh """
+                        ssh -p 12028 -o StrictHostKeyChecking=no root@${REMOTE_HOST} \\
+                        'mysqldump -u"${MYSQL_USER}" -p"${MYSQL_PASS}" ${DB_NAME} | gzip > ${REMOTE_TMP}/${FILE_NAME}'
+                    """
                     }
                 }
             }
         }
+
 
         stage('Descargar respaldo') {
             steps {
