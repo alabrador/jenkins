@@ -19,7 +19,7 @@ pipeline {
         stage('Preparar backup local') {
             steps {
                 sh '''
-                    mkdir -p "${BACKUP_DIR}"
+                    date
                 '''
             }
         }
