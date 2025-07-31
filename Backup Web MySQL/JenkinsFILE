@@ -44,7 +44,7 @@ pipeline {
             steps {
                 sshagent (credentials: ['remote_ssh_apronto']) {
                     sh '''
-                        scp -P ${REMOTE_PORT} -o StrictHostKeyChecking=no usuario_ssh@${REMOTE_HOST}:${REMOTE_TMP}/${FILE_NAME} ${BACKUP_DIR}/
+                        scp -P ${REMOTE_PORT} -o StrictHostKeyChecking=no root@${REMOTE_HOST}:${REMOTE_TMP}/${FILE_NAME} ${BACKUP_DIR}/
                     '''
                 }
             }
