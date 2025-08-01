@@ -14,16 +14,16 @@ pipeline {
         stage('Cargar credenciales y variables') {
             steps {
                 withCredentials([
-                    string(credentialsId: 'DB_NAME_SECRET', variable: 'DB_NAME'),
-                    string(credentialsId: 'REMOTE_HOST_APRONTO', variable: 'REMOTE_HOST'),
-                    string(credentialsId: 'REMOTE_PORT_APRONTO', variable: 'REMOTE_PORT')
+                    string(credentialsId: 'DB_NAME_SECRET', variable: 'DB_NAME_TMP'),
+                    string(credentialsId: 'REMOTE_HOST_APRONTO', variable: 'REMOTE_HOST_TMP'),
+                    string(credentialsId: 'REMOTE_PORT_APRONTO', variable: 'REMOTE_PORT_TMP')
                 ]) {
                     script {
-                        env.DB_NAME = DB_NAME
-                        env.REMOTE_HOST = REMOTE_HOST
-                        env.REMOTE_PORT = REMOTE_PORT
-                        env.DATE = new Date().format('yyyy-MM-dd_HH-mm-ss')
-                        env.FILE_NAME = "${DB_NAME}_${env.DATE}.sql.gz"
+                        env.DB_NAME     = DB_NAME_TMP
+                        env.REMOTE_HOST = REMOTE_HOST_TMP
+                        env.REMOTE_PORT = REMOTE_PORT_TMP
+                        env.DATE        = new Date().format('yyyy-MM-dd_HH-mm-ss')
+                        env.FILE_NAME   = "${env.DB_NAME}_${env.DATE}.sql.gz"
                     }
                 }
             }
