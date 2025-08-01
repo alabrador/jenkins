@@ -4,27 +4,35 @@ pipeline {
         REMOTE_HOST = credentials('REMOTE_HOST_APRONTO')
         REMOTE_PORT = credentials('REMOTE_PORT_APRONTO')
         DB_NAME = credentials('DB_NAME_SECRET')
-        SSH_CREDENTIALS_ID = 'remote_ssh_apronto'
     }
     stages {
-        stage('Preparar directorio de backup local') {
+        stage('Preparar backup local') {
             steps {
                 sh 'mkdir -p ${WORKSPACE}/backups'
             }
         }
-        stage('Realizar backup remoto') {
+        stage('Backup remoto') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'mysql_cred_apronto', usernameVariable: 'MYSQL_USER', passwordVariable: 'MYSQL_PASS')]) {
-                    sshagent(credentials: [SSH_CREDENTIALS_ID]) {
+                    sshagent(['remote_ssh_apronto']) {
                         script {
-                            def backupFile = "${DB_NAME}_\$(date +%F_%H-%M-%S).sql.gz"
-                            sh """
-                            ssh -p ${REMOTE_PORT} ${REMOTE_HOST} \\
+                            def timestamp = sh(script: 'date +%F_%H-%M-%S', returnStdout: true).trim()
+                            def backupFile = "${DB_NAME}_${timestamp}.sql.gz"
+
+                            // Realizar mysqldump remoto y comprimir
+                            sh(script: """
+                                ssh -p ${REMOTE_PORT} ${REMOTE_HOST} \\
                                 "mysqldump -u${MYSQL_USER} -p'${MYSQL_PASS}' ${DB_NAME} | gzip > /tmp/${backupFile}"
-                            scp -P ${REMOTE_PORT} ${REMOTE_HOST}:/tmp/${backupFile} ${WORKSPACE}/backups/
-                            ssh -p ${REMOTE_PORT} ${REMOTE_HOST} \\
+                            """)
+
+                            // Copiar el backup al workspace local
+                            sh(script: "scp -P ${REMOTE_PORT} ${REMOTE_HOST}:/tmp/${backupFile} ${WORKSPACE}/backups/")
+
+                            // Limpiar backups remotos con más de 7 días
+                            sh(script: """
+                                ssh -p ${REMOTE_PORT} ${REMOTE_HOST} \\
                                 'find /tmp -type f -name "${DB_NAME}_*.sql.gz" -mtime +7 -exec rm -f {} \\\\;'
-                            """
+                            """)
                         }
                     }
                 }
@@ -32,18 +40,18 @@ pipeline {
         }
         stage('Limpiar backups locales antiguos') {
             steps {
-                sh """
-                find ${WORKSPACE}/backups -type f -name "${DB_NAME}_*.sql.gz" -mtime +7 -exec rm -f {} \\\\;
-                """
+                sh(script: """
+                    find ${WORKSPACE}/backups -type f -name "${DB_NAME}_*.sql.gz" -mtime +7 -exec rm -f {} \\\\;
+                """)
             }
         }
     }
     post {
         success {
-            echo "✅ Respaldo completado correctamente."
+            echo "✅ Backup completado correctamente"
         }
         failure {
-            echo "❌ Falló el respaldo."
+            echo "❌ Falló el backup"
         }
     }
 }
