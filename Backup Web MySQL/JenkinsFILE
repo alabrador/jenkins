@@ -2,24 +2,23 @@ pipeline {
     agent any
 
     environment {
-        REMOTE_TMP = '/tmp'
         BACKUP_DIR = "${env.WORKSPACE}/backups"
-    }
-
-    triggers {
-        cron('H 2 * * *') // Ejecuta todos los días alrededor de las 2 AM
+        REMOTE_TMP_DIR = "/tmp"
     }
 
     stages {
-        stage('Preparar backup local') {
+        stage('Preparar directorio local') {
             steps {
-                sh 'mkdir -p "${BACKUP_DIR}"'
+                script {
+                    sh "mkdir -p ${BACKUP_DIR}"
+                    echo "Directorio de backup local preparado: ${BACKUP_DIR}"
+                }
             }
         }
 
-        stage('Respaldar vía SSH remota') {
+        stage('Realizar respaldo remoto') {
             steps {
-                sshagent (credentials: ['remote_ssh_apronto']) {
+                sshagent(credentials: ['remote_ssh_apronto']) {
                     withCredentials([
                         string(credentialsId: 'DB_NAME_SECRET', variable: 'DB_NAME'),
                         string(credentialsId: 'REMOTE_HOST_APRONTO', variable: 'REMOTE_HOST'),
@@ -27,13 +26,15 @@ pipeline {
                         usernamePassword(credentialsId: 'mysql_cred_apronto', usernameVariable: 'MYSQL_USER', passwordVariable: 'MYSQL_PASS')
                     ]) {
                         script {
-                            def DATE = new Date().format("yyyy-MM-dd_HH-mm-ss")
-                            def FILE_NAME = "${env.DB_NAME}_${DATE}.sql.gz"
-                            env.FILE_NAME = FILE_NAME // guardamos para las siguientes etapas
+                            def timestamp = new Date().format("yyyy-MM-dd_HH-mm-ss")
+                            def backupFileName = "${DB_NAME}_${timestamp}.sql.gz"
+                            env.BACKUP_FILE_NAME = backupFileName
+
+                            echo "Generando respaldo remoto: ${backupFileName}"
 
                             sh """
-                                ssh -p \$REMOTE_PORT -o StrictHostKeyChecking=no root@\$REMOTE_HOST \\
-                                'mysqldump -u"\$MYSQL_USER" -p"\$MYSQL_PASS" "\$DB_NAME" | gzip > ${REMOTE_TMP}/$FILE_NAME'
+                                ssh -p ${REMOTE_PORT} -o StrictHostKeyChecking=no root@${REMOTE_HOST} \\
+                                "mysqldump -u${MYSQL_USER} -p${MYSQL_PASS} ${DB_NAME} | gzip > ${REMOTE_TMP_DIR}/${backupFileName}"
                             """
                         }
                     }
@@ -43,18 +44,16 @@ pipeline {
 
         stage('Descargar respaldo') {
             steps {
-                sshagent (credentials: ['remote_ssh_apronto']) {
+                sshagent(credentials: ['remote_ssh_apronto']) {
                     withCredentials([
-                        string(credentialsId: 'DB_NAME_SECRET', variable: 'DB_NAME'),
                         string(credentialsId: 'REMOTE_HOST_APRONTO', variable: 'REMOTE_HOST'),
                         string(credentialsId: 'REMOTE_PORT_APRONTO', variable: 'REMOTE_PORT')
                     ]) {
                         script {
-                            def DATE = new Date().format("yyyy-MM-dd_HH-mm-ss")
-                            def FILE_NAME = "${env.DB_NAME}_${DATE}.sql.gz"
+                            echo "Descargando respaldo remoto: ${env.BACKUP_FILE_NAME}"
 
                             sh """
-                                scp -P \$REMOTE_PORT -o StrictHostKeyChecking=no root@\$REMOTE_HOST:${REMOTE_TMP}/$FILE_NAME "${BACKUP_DIR}/"
+                                scp -P ${REMOTE_PORT} -o StrictHostKeyChecking=no root@${REMOTE_HOST}:${REMOTE_TMP_DIR}/${env.BACKUP_FILE_NAME} ${BACKUP_DIR}/
                             """
                         }
                     }
@@ -64,18 +63,16 @@ pipeline {
 
         stage('Limpiar respaldo remoto') {
             steps {
-                sshagent (credentials: ['remote_ssh_apronto']) {
+                sshagent(credentials: ['remote_ssh_apronto']) {
                     withCredentials([
-                        string(credentialsId: 'DB_NAME_SECRET', variable: 'DB_NAME'),
                         string(credentialsId: 'REMOTE_HOST_APRONTO', variable: 'REMOTE_HOST'),
                         string(credentialsId: 'REMOTE_PORT_APRONTO', variable: 'REMOTE_PORT')
                     ]) {
                         script {
-                            def DATE = new Date().format("yyyy-MM-dd_HH-mm-ss")
-                            def FILE_NAME = "${env.DB_NAME}_${DATE}.sql.gz"
+                            echo "Eliminando respaldo remoto: ${env.BACKUP_FILE_NAME}"
 
                             sh """
-                                ssh -p \$REMOTE_PORT root@\$REMOTE_HOST "rm -f ${REMOTE_TMP}/$FILE_NAME"
+                                ssh -p ${REMOTE_PORT} root@${REMOTE_HOST} rm -f ${REMOTE_TMP_DIR}/${env.BACKUP_FILE_NAME}
                             """
                         }
                     }
@@ -83,19 +80,25 @@ pipeline {
             }
         }
 
-        stage('Limpiar respaldos antiguos') {
+        stage('Limpiar respaldos locales antiguos') {
             steps {
-                sh 'find "${BACKUP_DIR}" -type f -name "*.sql.gz" -mtime +7 -exec rm -f {} ";"'
+                script {
+                    echo "Eliminando respaldos locales con más de 7 días"
+
+                    sh """
+                        find ${BACKUP_DIR} -type f -name '*.sql.gz' -mtime +7 -exec rm -f {} \;
+                    """
+                }
             }
         }
     }
 
     post {
         success {
-            echo "✅ Backup realizado correctamente: ${env.FILE_NAME}"
+            echo "✅ Respaldo completado exitosamente: ${env.BACKUP_FILE_NAME}"
         }
         failure {
-            echo "❌ Error durante el proceso de backup"
+            echo "❌ Falló el proceso de respaldo."
         }
     }
 }
