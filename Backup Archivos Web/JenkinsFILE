@@ -3,7 +3,6 @@ pipeline {
 
     environment {
         SITE_PATH = '/home/aprontodental.com/public_html'
-        REMOTE_HOST = '66.94.98.24'
         REMOTE_PORT = '12028'
         REMOTE_TMP = '/tmp'
         BACKUP_DIR = "${env.WORKSPACE}/backups"
@@ -24,42 +23,47 @@ pipeline {
             }
         }
 
-    stage('Respaldar sitio vía SSH') {
-        steps {
-            sshagent (credentials: ['remote_ssh_apronto']) {
-                sh """
-                    ssh -p ${REMOTE_PORT} -o StrictHostKeyChecking=no root@${REMOTE_HOST} \\
-                    'tar --warning=no-file-changed -czf ${REMOTE_TMP}/${FILE_NAME} \\
-                    --exclude=pub/media \\
-                    --exclude=*.log \\
-                    --exclude=*.tmp \\
-                    --exclude=*.cache \\
-                    --exclude=var/cache \\
-                    --exclude=var/tmp \\
-                    -C ${SITE_PATH} .'
-                """
+        stage('Respaldar sitio vía SSH') {
+            steps {
+                withCredentials([string(credentialsId: 'remote_host_apronto', variable: 'REMOTE_HOST')]) {
+                    sshagent (credentials: ['remote_ssh_apronto']) {
+                        sh """
+                            ssh -p ${REMOTE_PORT} -o StrictHostKeyChecking=no root@${REMOTE_HOST} \\
+                            'tar --warning=no-file-changed -czf ${REMOTE_TMP}/${FILE_NAME} \\
+                                --exclude=pub/media \\
+                                --exclude=*.log \\
+                                --exclude=*.tmp \\
+                                --exclude=*.cache \\
+                                --exclude=var/cache \\
+                                --exclude=var/tmp \\
+                                -C ${SITE_PATH} .'
+                        """
+                    }
+                }
             }
         }
-    }
-
 
         stage('Descargar respaldo') {
             steps {
-                sshagent (credentials: ['remote_ssh_apronto']) {
-                    sh """
-                        scp -P ${REMOTE_PORT} -o StrictHostKeyChecking=no root@${REMOTE_HOST}:${REMOTE_TMP}/${FILE_NAME} "${BACKUP_DIR}/"
-                    """
+                withCredentials([string(credentialsId: 'remote_host_apronto', variable: 'REMOTE_HOST')]) {
+                    sshagent (credentials: ['remote_ssh_apronto']) {
+                        sh """
+                            scp -P ${REMOTE_PORT} -o StrictHostKeyChecking=no root@${REMOTE_HOST}:${REMOTE_TMP}/${FILE_NAME} "${BACKUP_DIR}/"
+                        """
+                    }
                 }
             }
         }
 
         stage('Limpiar respaldo remoto') {
             steps {
-                sshagent (credentials: ['remote_ssh_apronto']) {
-                    sh """
-                        ssh -p ${REMOTE_PORT} -o StrictHostKeyChecking=no root@${REMOTE_HOST} \\
-                        'rm -f ${REMOTE_TMP}/${FILE_NAME}'
-                    """
+                withCredentials([string(credentialsId: 'remote_host_apronto', variable: 'REMOTE_HOST')]) {
+                    sshagent (credentials: ['remote_ssh_apronto']) {
+                        sh """
+                            ssh -p ${REMOTE_PORT} -o StrictHostKeyChecking=no root@${REMOTE_HOST} \\
+                            'rm -f ${REMOTE_TMP}/${FILE_NAME}'
+                        """
+                    }
                 }
             }
         }
