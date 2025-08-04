@@ -25,7 +25,7 @@ pipeline {
 
         stage('Respaldar sitio vía SSH') {
             steps {
-                withCredentials([string(credentialsId: 'remote_host_apronto', variable: 'REMOTE_HOST')]) {
+                withCredentials([string(credentialsId: 'REMOTE_HOST', variable: 'REMOTE_HOST')]) {
                     sshagent (credentials: ['remote_ssh_apronto']) {
                         sh """
                             ssh -p ${REMOTE_PORT} -o StrictHostKeyChecking=no root@${REMOTE_HOST} \\
@@ -45,7 +45,7 @@ pipeline {
 
         stage('Descargar respaldo') {
             steps {
-                withCredentials([string(credentialsId: 'remote_host_apronto', variable: 'REMOTE_HOST')]) {
+                withCredentials([string(credentialsId: 'REMOTE_HOST', variable: 'REMOTE_HOST')]) {
                     sshagent (credentials: ['remote_ssh_apronto']) {
                         sh """
                             scp -P ${REMOTE_PORT} -o StrictHostKeyChecking=no root@${REMOTE_HOST}:${REMOTE_TMP}/${FILE_NAME} "${BACKUP_DIR}/"
@@ -57,7 +57,7 @@ pipeline {
 
         stage('Limpiar respaldo remoto') {
             steps {
-                withCredentials([string(credentialsId: 'remote_host_apronto', variable: 'REMOTE_HOST')]) {
+                withCredentials([string(credentialsId: 'REMOTE_HOST', variable: 'REMOTE_HOST')]) {
                     sshagent (credentials: ['remote_ssh_apronto']) {
                         sh """
                             ssh -p ${REMOTE_PORT} -o StrictHostKeyChecking=no root@${REMOTE_HOST} \\
