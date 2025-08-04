@@ -1,0 +1,76 @@
+pipeline {
+    agent any
+
+    environment {
+        SITE_PATH = '/home/aprontodental.com/public_html'
+        REMOTE_HOST = '66.94.98.24'
+        REMOTE_PORT = '12028'
+        REMOTE_TMP = '/tmp'
+        BACKUP_DIR = "${env.WORKSPACE}/backups"
+        DATE = "${new Date().format('yyyy-MM-dd_HH-mm-ss')}"
+        FILE_NAME = "web_backup_${DATE}.tar.gz"
+    }
+
+    triggers {
+        cron('H 2 * * *') // Diariamente alrededor de las 2am
+    }
+
+    stages {
+        stage('Preparar backup local') {
+            steps {
+                sh '''
+                    mkdir -p "${BACKUP_DIR}"
+                '''
+            }
+        }
+
+        stage('Respaldar sitio vía SSH') {
+            steps {
+                sshagent (credentials: ['remote_ssh_apronto']) {
+                    sh """
+                        ssh -p ${REMOTE_PORT} -o StrictHostKeyChecking=no root@${REMOTE_HOST} \\
+                        'tar -czf ${REMOTE_TMP}/${FILE_NAME} -C ${SITE_PATH} .'
+                    """
+                }
+            }
+        }
+
+        stage('Descargar respaldo') {
+            steps {
+                sshagent (credentials: ['remote_ssh_apronto']) {
+                    sh """
+                        scp -P ${REMOTE_PORT} -o StrictHostKeyChecking=no root@${REMOTE_HOST}:${REMOTE_TMP}/${FILE_NAME} "${BACKUP_DIR}/"
+                    """
+                }
+            }
+        }
+
+        stage('Limpiar respaldo remoto') {
+            steps {
+                sshagent (credentials: ['remote_ssh_apronto']) {
+                    sh """
+                        ssh -p ${REMOTE_PORT} -o StrictHostKeyChecking=no root@${REMOTE_HOST} \\
+                        'rm -f ${REMOTE_TMP}/${FILE_NAME}'
+                    """
+                }
+            }
+        }
+
+        stage('Limpiar respaldos antiguos') {
+            steps {
+                sh '''
+                    find "${BACKUP_DIR}" -type f -name "*.tar.gz" -mtime +7 -exec rm -f {} ';'
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Backup del sitio web exitoso: ${FILE_NAME}"
+        }
+        failure {
+            echo "❌ Falló el respaldo del sitio web"
+        }
+    }
+}
