@@ -17,8 +17,8 @@ pipeline {
     stages {
         stage('Preparar backup local') {
             steps {
-                sh '''
-                    mkdir -p "${BACKUP_DIR}"
+                sh script: '''
+                    mkdir -p "$BACKUP_DIR"
                 '''
             }
         }
@@ -27,18 +27,17 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'REMOTE_HOST', variable: 'REMOTE_HOST')]) {
                     sshagent (credentials: ['remote_ssh_apronto']) {
-                        sh(script: '''
+                        sh script: '''
                             ssh -p $REMOTE_PORT -o StrictHostKeyChecking=no root@$REMOTE_HOST \
                             'tar --warning=no-file-changed -czf $REMOTE_TMP/$FILE_NAME \
-                            --exclude=pub/media \
-                            --exclude=*.log \
-                            --exclude=*.tmp \
-                            --exclude=*.cache \
-                            --exclude=var/cache \
-                            --exclude=var/tmp \
-                            -C $SITE_PATH .'
-                        ''', shell: 'bash')
-
+                                --exclude=pub/media \
+                                --exclude=*.log \
+                                --exclude=*.tmp \
+                                --exclude=*.cache \
+                                --exclude=var/cache \
+                                --exclude=var/tmp \
+                                -C $SITE_PATH .'
+                        '''
                     }
                 }
             }
@@ -48,9 +47,9 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'REMOTE_HOST', variable: 'REMOTE_HOST')]) {
                     sshagent (credentials: ['remote_ssh_apronto']) {
-                        sh """
-                            scp -P ${REMOTE_PORT} -o StrictHostKeyChecking=no root@${REMOTE_HOST}:${REMOTE_TMP}/${FILE_NAME} "${BACKUP_DIR}/"
-                        """
+                        sh script: '''
+                            scp -P $REMOTE_PORT -o StrictHostKeyChecking=no root@$REMOTE_HOST:$REMOTE_TMP/$FILE_NAME "$BACKUP_DIR/"
+                        '''
                     }
                 }
             }
@@ -60,10 +59,10 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'REMOTE_HOST', variable: 'REMOTE_HOST')]) {
                     sshagent (credentials: ['remote_ssh_apronto']) {
-                        sh """
-                            ssh -p ${REMOTE_PORT} -o StrictHostKeyChecking=no root@${REMOTE_HOST} \\
-                            'rm -f ${REMOTE_TMP}/${FILE_NAME}'
-                        """
+                        sh script: '''
+                            ssh -p $REMOTE_PORT -o StrictHostKeyChecking=no root@$REMOTE_HOST \
+                            'rm -f $REMOTE_TMP/$FILE_NAME'
+                        '''
                     }
                 }
             }
@@ -71,8 +70,8 @@ pipeline {
 
         stage('Limpiar respaldos antiguos') {
             steps {
-                sh '''
-                    find "${BACKUP_DIR}" -type f -name "*.tar.gz" -mtime +7 -exec rm -f {} ';'
+                sh script: '''
+                    find "$BACKUP_DIR" -type f -name "*.tar.gz" -mtime +7 -exec rm -f {} ';'
                 '''
             }
         }
