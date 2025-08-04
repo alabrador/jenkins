@@ -27,17 +27,18 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'REMOTE_HOST', variable: 'REMOTE_HOST')]) {
                     sshagent (credentials: ['remote_ssh_apronto']) {
-                        sh """
-                            ssh -p ${REMOTE_PORT} -o StrictHostKeyChecking=no root@${REMOTE_HOST} \\
-                            'tar --warning=no-file-changed -czf ${REMOTE_TMP}/${FILE_NAME} \\
-                                --exclude=pub/media \\
-                                --exclude=*.log \\
-                                --exclude=*.tmp \\
-                                --exclude=*.cache \\
-                                --exclude=var/cache \\
-                                --exclude=var/tmp \\
-                                -C ${SITE_PATH} .'
-                        """
+                        sh(script: '''
+                            ssh -p $REMOTE_PORT -o StrictHostKeyChecking=no root@$REMOTE_HOST \
+                            'tar --warning=no-file-changed -czf $REMOTE_TMP/$FILE_NAME \
+                            --exclude=pub/media \
+                            --exclude=*.log \
+                            --exclude=*.tmp \
+                            --exclude=*.cache \
+                            --exclude=var/cache \
+                            --exclude=var/tmp \
+                            -C $SITE_PATH .'
+                        ''', shell: 'bash')
+
                     }
                 }
             }
