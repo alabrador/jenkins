@@ -24,16 +24,24 @@ pipeline {
             }
         }
 
-        stage('Respaldar sitio vía SSH') {
-            steps {
-                sshagent (credentials: ['remote_ssh_apronto']) {
-                    sh """
-                        ssh -p ${REMOTE_PORT} -o StrictHostKeyChecking=no root@${REMOTE_HOST} \\
-                        'tar -czf ${REMOTE_TMP}/${FILE_NAME} -C ${SITE_PATH} .'
-                    """
-                }
+    stage('Respaldar sitio vía SSH') {
+        steps {
+            sshagent (credentials: ['remote_ssh_apronto']) {
+                sh """
+                    ssh -p ${REMOTE_PORT} -o StrictHostKeyChecking=no root@${REMOTE_HOST} \\
+                    'tar --warning=no-file-changed -czf ${REMOTE_TMP}/${FILE_NAME} \\
+                    --exclude=pub/media \\
+                    --exclude=*.log \\
+                    --exclude=*.tmp \\
+                    --exclude=*.cache \\
+                    --exclude=var/cache \\
+                    --exclude=var/tmp \\
+                    -C ${SITE_PATH} .'
+                """
             }
         }
+    }
+
 
         stage('Descargar respaldo') {
             steps {
