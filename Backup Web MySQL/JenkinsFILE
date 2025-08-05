@@ -28,15 +28,13 @@ pipeline {
             steps {
                 sshagent (credentials: ['remote_ssh_apronto']) {
                     withCredentials([usernamePassword(credentialsId: 'mysql_cred_apronto', usernameVariable: 'MYSQL_USER', passwordVariable: 'MYSQL_PASS')]) {
-                    sh """
-                        ssh -p ${REMOTE_PORT} -o StrictHostKeyChecking=no root@${REMOTE_HOST} \\
-                        'mysqldump -u"${MYSQL_USER}" -p"${MYSQL_PASS}" ${DB_NAME} | gzip > ${REMOTE_TMP}/${FILE_NAME}'
-                    """
+                        sh """
+                            ssh -p ${REMOTE_PORT} -o StrictHostKeyChecking=no root@${REMOTE_HOST} 'mysqldump -u"${MYSQL_USER}" -p"\\"${MYSQL_PASS}\\"" ${DB_NAME} | gzip > ${REMOTE_TMP}/${FILE_NAME}'
+                        """
                     }
                 }
             }
         }
-
 
         stage('Descargar respaldo') {
             steps {
@@ -51,9 +49,9 @@ pipeline {
         stage('Limpiar respaldo remoto') {
             steps {
                 sshagent (credentials: ['remote_ssh_apronto']) {
-                    sh '''
+                    sh """
                         ssh -p ${REMOTE_PORT} root@${REMOTE_HOST} "rm -f ${REMOTE_TMP}/${FILE_NAME}"
-                    '''
+                    """
                 }
             }
         }
@@ -65,7 +63,6 @@ pipeline {
                 '''
             }
         }
-
     }
 
     post {
