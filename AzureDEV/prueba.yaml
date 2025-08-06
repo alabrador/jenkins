@@ -7,9 +7,16 @@ pool:
     - agent.name -equals LENOVO-ALEX
 
 stages:
-- stage: Build
+- stage: CleanTempFolder
   jobs:
-  - job: BuildJob
+  - job: DeleteFilesJob
     steps:
-    - script: echo "Compilando el proyecto en LENOVO-ALEX"
-      displayName: 'Compilación'
+    - powershell: |
+        $folder = "C:\temprueba"
+        if (Test-Path $folder) {
+          Get-ChildItem -Path $folder -Recurse -Force | Remove-Item -Force -Recurse
+          Write-Output "Contenido eliminado de $folder"
+        } else {
+          Write-Warning "La carpeta $folder no existe."
+        }
+      displayName: "Eliminar contenido de C:\\temprueba"
