@@ -1,0 +1,4 @@
+pool:
+  name: Default
+  demands:
+    - agent.name -equals LENOVO-ALEX
