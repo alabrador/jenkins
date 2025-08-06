@@ -1,4 +1,14 @@
-pool:
-  name: Default
-  demands:
-    - agent.name -equals LENOVO-ALEX
+stages:
+- stage: Build
+  dependsOn: Deploy  # <- ERROR: depende de una etapa que no ha sido definida o aún no ejecutada
+  jobs:
+  - job: BuildJob
+    steps:
+    - script: echo "Build stage"
+
+- stage: Deploy
+  dependsOn: Build   # <- ERROR: referencia circular o todas las etapas tienen dependencias
+  jobs:
+  - job: DeployJob
+    steps:
+    - script: echo "Deploy stage"
