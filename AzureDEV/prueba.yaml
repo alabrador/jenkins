@@ -1,13 +1,19 @@
 stages:
 - stage: Build
-  dependsOn: Deploy  # <- ERROR: depende de una etapa que no ha sido definida o aún no ejecutada
   jobs:
   - job: BuildJob
     steps:
     - script: echo "Build stage"
 
+- stage: Test
+  dependsOn: Build
+  jobs:
+  - job: TestJob
+    steps:
+    - script: echo "Test stage"
+
 - stage: Deploy
-  dependsOn: Build   # <- ERROR: referencia circular o todas las etapas tienen dependencias
+  dependsOn: Test
   jobs:
   - job: DeployJob
     steps:
