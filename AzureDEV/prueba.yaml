@@ -1,20 +1,15 @@
+trigger:
+- main
+
+pool:
+  name: Default
+  demands:
+    - agent.name -equals LENOVO-ALEX
+
 stages:
 - stage: Build
   jobs:
   - job: BuildJob
     steps:
-    - script: echo "Build stage"
-
-- stage: Test
-  dependsOn: Build
-  jobs:
-  - job: TestJob
-    steps:
-    - script: echo "Test stage"
-
-- stage: Deploy
-  dependsOn: Test
-  jobs:
-  - job: DeployJob
-    steps:
-    - script: echo "Deploy stage"
+    - script: echo "Compilando el proyecto en LENOVO-ALEX"
+      displayName: 'Compilación'
