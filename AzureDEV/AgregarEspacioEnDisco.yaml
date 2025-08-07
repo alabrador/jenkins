@@ -17,56 +17,27 @@ jobs:
       lsblk
       df -h /
 
-      echo "=== Paso 1: Detectar la partición del Physical Volume (PV) ==="
-      PV_PART=$(pvs --no-headings -o pv_name | awk '{print $1}' | head -n1)
-      if [ -z "$PV_PART" ]; then
-        echo "No se detectó ningún Physical Volume (PV). Abortando."
-        exit 1
-      fi
-      echo "Physical Volume detectado: $PV_PART"
+      echo "=== Paso 1: Ampliar partición física (sda3) ==="
+      sudo growpart /dev/sda 3
 
-      DISK_DEV=$(lsblk -no pkname "$PV_PART")
-      PART_NUM=$(echo "$PV_PART" | grep -o '[0-9]*$')
-      echo "Disco base: /dev/$DISK_DEV"
-      echo "Número de partición: $PART_NUM"
+      echo "=== Paso 2: Redimensionar Physical Volume (PV) ==="
+      sudo pvresize /dev/sda3
 
-      echo "=== Paso 2: Ampliar partición física si es necesario ==="
-      if command -v growpart >/dev/null; then
-        sudo growpart "/dev/$DISK_DEV" "$PART_NUM" || echo "growpart no hizo cambios"
-      else
-        echo "growpart no está instalado. Intenta instalar el paquete cloud-utils-growpart."
-        exit 1
-      fi
+      echo "=== Paso 3: Extender Logical Volume (LV) ==="
+      sudo lvextend -l +100%FREE /dev/cs_testlinux/root
 
-      echo "=== Paso 3: Redimensionar Physical Volume (PV) ==="
-      sudo pvresize "$PV_PART"
-
-      echo "=== Paso 4: Detectar volumen lógico (LV) raíz ==="
-      LV_PATH=$(df / | tail -1 | awk '{print $1}')
-      echo "Volumen lógico raíz: $LV_PATH"
-
-      echo "=== Paso 5: Extender Logical Volume (LV) ==="
-      sudo lvextend -l +100%FREE "$LV_PATH"
-
-      echo "=== Paso 6: Detectar tipo de sistema de archivos y redimensionar ==="
+      echo "=== Paso 4: Detectar tipo de FS y redimensionar ==="
       FS_TYPE=$(df -T / | tail -1 | awk '{print $2}')
       echo "Tipo de sistema de archivos: $FS_TYPE"
 
-      case "$FS_TYPE" in
-        ext4)
-          sudo resize2fs "$LV_PATH"
-          ;;
-        xfs)
-          sudo xfs_growfs /
-          ;;
-        btrfs)
-          sudo btrfs filesystem resize max /
-          ;;
-        *)
-          echo "Sistema de archivos no soportado: $FS_TYPE"
-          exit 1
-          ;;
-      esac
+      if [ "$FS_TYPE" = "ext4" ]; then
+        sudo resize2fs /dev/cs_testlinux/root
+      elif [ "$FS_TYPE" = "xfs" ]; then
+        sudo xfs_growfs /
+      else
+        echo "Sistema de archivos no compatible: $FS_TYPE"
+        exit 1
+      fi
 
       echo "=== Información final ==="
       lsblk
