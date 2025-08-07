@@ -1,0 +1,43 @@
+trigger:
+- main
+
+pool:
+  name: Default
+  demands:
+    - agent.name -equals testlinux
+
+jobs:
+- job: InstallPackages
+  displayName: Instalar paquetes en Linux (cloud-utils-growpart y git)
+  steps:
+  - script: |
+      set -eux
+
+      echo "=== Detectando distribución del sistema ==="
+      source /etc/os-release
+
+      case "$ID" in
+        ubuntu)
+          echo "Distribución: Ubuntu"
+          sudo apt update
+          sudo apt install -y cloud-guest-utils git
+          ;;
+        centos|rhel)
+          echo "Distribución: CentOS/RHEL"
+          sudo yum install -y cloud-utils-growpart git
+          ;;
+        ol)
+          echo "Distribución: Oracle Linux"
+          sudo dnf install -y cloud-utils-growpart git || sudo yum install -y cloud-utils-growpart git
+          ;;
+        *)
+          echo "Distribución $ID no soportada"
+          exit 1
+          ;;
+      esac
+
+      echo "=== Verificando instalación ==="
+      which growpart
+      growpart --version || true
+      git --version
+    displayName: "Instalar cloud-utils-growpart y git"
