@@ -1,0 +1,27 @@
+trigger: none
+
+pool:
+  name: Default
+  demands:
+    - agent.name -equals testlinux
+
+stages:
+  - stage: ExpandRoot
+    displayName: "Expand root partition on testlinux"
+    jobs:
+      - job: ResizeRoot
+        displayName: "Resize root LV"
+        steps:
+          - script: |
+              echo "Espacio antes de la expansión:"
+              df -h /
+
+              echo "Extensión del volumen lógico..."
+              sudo lvextend -l +100%FREE /dev/cs_testlinux/root
+
+              echo "Redimensionando el sistema de archivos..."
+              sudo resize2fs /dev/cs_testlinux/root
+
+              echo "Espacio después de la expansión:"
+              df -h /
+            displayName: "Expandir /dev/cs_testlinux/root"
