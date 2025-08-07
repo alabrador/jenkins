@@ -2,7 +2,9 @@ trigger:
 - main
 
 pool:
-  name: Default  # Asegúrate de que el agente testlinux esté en este pool
+  name: Default
+  demands:
+    - agent.name -equals testlinux
 
 jobs:
 - job: ExpandRootDisk
