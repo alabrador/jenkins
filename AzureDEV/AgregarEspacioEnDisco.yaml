@@ -1,37 +1,41 @@
-trigger: none
+trigger:
+- none  # O cambia a 'main' si quieres que se ejecute con cada push
 
 pool:
-  name: Default
-  demands:
-    - agent.name -equals testlinux
+  name: Default  # Asegúrate de que 'testlinux' esté en este pool
 
-stages:
-  - stage: ExpandDisk
-    displayName: "Expand root partition on testlinux"
-    jobs:
-      - job: ResizeRootPartition
-        displayName: "Expand / partition with new disk space"
-        steps:
-          - script: |
-              echo "=== Información antes de iniciar ==="
-              lsblk
-              df -h /
-              sudo vgs
+jobs:
+- job: ExpandirRootPartition
+  displayName: "Expandir partición raíz automáticamente"
+  timeoutInMinutes: 20
 
-              echo "=== Paso 1: Expandir partición sda3 con growpart ==="
-              sudo growpart /dev/sda 3
+  steps:
+  - script: |
+      echo "=== Información inicial del disco ==="
+      lsblk
+      df -h /
+      echo ""
 
-              echo "=== Paso 2: Redimensionar Physical Volume ==="
-              sudo pvresize /dev/sda3
+      echo "=== Expandir partición /dev/sda3 ==="
+      sudo growpart /dev/sda 3
 
-              echo "=== Paso 3: Extender Logical Volume ==="
-              sudo lvextend -l +100%FREE /dev/cs_testlinux/root
+      echo "=== Estado tras growpart ==="
+      lsblk
+      echo ""
 
-              echo "=== Paso 4: Redimensionar sistema de archivos ext4 ==="
-              sudo resize2fs /dev/cs_testlinux/root
+      echo "=== Redimensionar el Physical Volume ==="
+      sudo pvresize /dev/sda3
 
-              echo "=== Información final ==="
-              lsblk
-              df -h /
-              sudo vgs
-            displayName: "Expandir partición raíz automáticamente"
+      echo "=== Expandir Logical Volume ==="
+      sudo lvextend -l +100%FREE /dev/cs_testlinux/root
+
+      echo "=== Redimensionar sistema de archivos ==="
+      sudo resize2fs /dev/cs_testlinux/root
+
+      echo "=== Verificación final ==="
+      lsblk
+      df -h /
+      vgs
+      lvs
+    displayName: "Expandir partición raíz"
+    shell: bash
