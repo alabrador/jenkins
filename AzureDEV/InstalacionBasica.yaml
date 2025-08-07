@@ -40,4 +40,4 @@ jobs:
       which growpart
       growpart --version || true
       git --version
-    displayName: "Instalar cloud-utils-growpart y git"
+    displayName: "Instalar cloud-utils-growpart"
