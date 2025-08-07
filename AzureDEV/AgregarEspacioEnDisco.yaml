@@ -18,25 +18,28 @@ jobs:
       df -h /
 
       echo "=== Paso 1: Detectar la partición del Physical Volume (PV) ==="
-      PV_PART=$(pvs --noheadings -o pv_name | xargs)
-      echo "Partición detectada para el PV: $PV_PART"
+      PV_PART=$(pvs --no-headings -o pv_name | awk '{print $1}' | head -n1)
+      echo "Physical Volume detectado: $PV_PART"
 
       DISK_DEV=$(lsblk -no pkname "$PV_PART")
-      PART_NUM=$(lsblk -no name "$PV_PART" | grep -o '[0-9]*$')
-      echo "Disco: /dev/$DISK_DEV - Partición: $PART_NUM"
+      PART_NUM=$(echo "$PV_PART" | grep -o '[0-9]*$')
+      echo "Disco base: /dev/$DISK_DEV"
+      echo "Número de partición: $PART_NUM"
 
-      echo "=== Paso 2: Ampliar la partición física ($PV_PART) ==="
-      sudo growpart "/dev/$DISK_DEV" "$PART_NUM"
+      echo "=== Paso 2: Ampliar partición física si es necesario ==="
+      sudo growpart "/dev/$DISK_DEV" "$PART_NUM" || echo "growpart no hizo cambios o ya estaba extendida"
 
       echo "=== Paso 3: Redimensionar Physical Volume (PV) ==="
       sudo pvresize "$PV_PART"
 
-      echo "=== Paso 4: Extender Logical Volume (LV) ==="
-      LV_PATH=$(lvs --noheadings -o lv_path | grep root | xargs)
-      echo "LV detectado: $LV_PATH"
+      echo "=== Paso 4: Detectar volumen lógico (LV) raíz ==="
+      LV_PATH=$(df / | tail -1 | awk '{print $1}')
+      echo "Volumen lógico raíz: $LV_PATH"
+
+      echo "=== Paso 5: Extender Logical Volume (LV) ==="
       sudo lvextend -l +100%FREE "$LV_PATH"
 
-      echo "=== Paso 5: Detectar tipo de FS y redimensionar ==="
+      echo "=== Paso 6: Detectar tipo de sistema de archivos y redimensionar ==="
       FS_TYPE=$(df -T / | tail -1 | awk '{print $2}')
       echo "Tipo de sistema de archivos: $FS_TYPE"
 
@@ -51,7 +54,7 @@ jobs:
           sudo btrfs filesystem resize max /
           ;;
         *)
-          echo "Sistema de archivos no compatible: $FS_TYPE"
+          echo "Sistema de archivos no soportado: $FS_TYPE"
           exit 1
           ;;
       esac
