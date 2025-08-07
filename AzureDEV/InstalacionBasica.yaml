@@ -20,15 +20,15 @@ jobs:
         ubuntu)
           echo "Distribución: Ubuntu"
           sudo apt update
-          sudo apt install -y cloud-guest-utils git
+          sudo apt install -y cloud-guest-utils
           ;;
         centos|rhel)
           echo "Distribución: CentOS/RHEL"
-          sudo yum install -y cloud-utils-growpart git
+          sudo yum install -y cloud-utils-growpart
           ;;
         ol)
           echo "Distribución: Oracle Linux"
-          sudo dnf install -y cloud-utils-growpart git || sudo yum install -y cloud-utils-growpart git
+          sudo dnf install -y cloud-utils-growpart || sudo yum install -y cloud-utils-growpart
           ;;
         *)
           echo "Distribución $ID no soportada"
