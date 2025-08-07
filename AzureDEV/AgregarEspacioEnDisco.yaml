@@ -6,22 +6,41 @@ pool:
     - agent.name -equals testlinux
 
 stages:
-  - stage: ExpandRoot
-    displayName: "Expand root partition on testlinux"
+  - stage: ExpandDisk
+    displayName: "Detect and expand root partition"
     jobs:
-      - job: ResizeRoot
-        displayName: "Resize root LV"
+      - job: Resize
         steps:
           - script: |
-              echo "Espacio antes de la expansión:"
+              echo "=== Información del disco ==="
+              lsblk
+              echo
               df -h /
 
-              echo "Extensión del volumen lógico..."
+              echo "=== Detectando disco raíz ==="
+              ROOT_PART=$(df / | tail -1 | awk '{print $1}')
+              echo "ROOT_PART: $ROOT_PART"
+
+              # Detectar el disco base (ej: /dev/sda si /dev/sda3)
+              DISK=$(lsblk -no pkname $ROOT_PART)
+              echo "DISK: /dev/$DISK"
+
+              echo "=== Detectando número de partición ==="
+              PART_NUM=$(echo $ROOT_PART | grep -o '[0-9]*$')
+              echo "PART_NUM: $PART_NUM"
+
+              echo "=== Expandiendo partición $PART_NUM en /dev/$DISK ==="
+              sudo growpart /dev/$DISK $PART_NUM
+
+              echo "=== Redimensionando Physical Volume ==="
+              sudo pvresize $ROOT_PART
+
+              echo "=== Extendiendo el Logical Volume ==="
               sudo lvextend -l +100%FREE /dev/cs_testlinux/root
 
-              echo "Redimensionando el sistema de archivos..."
+              echo "=== Redimensionando el sistema de archivos ==="
               sudo resize2fs /dev/cs_testlinux/root
 
-              echo "Espacio después de la expansión:"
+              echo "=== Final ==="
               df -h /
-            displayName: "Expandir /dev/cs_testlinux/root"
+            displayName: "Expandir partición raíz automáticamente"
