@@ -19,6 +19,10 @@ jobs:
 
       echo "=== Paso 1: Detectar la partición del Physical Volume (PV) ==="
       PV_PART=$(pvs --no-headings -o pv_name | awk '{print $1}' | head -n1)
+      if [ -z "$PV_PART" ]; then
+        echo "No se detectó ningún Physical Volume (PV). Abortando."
+        exit 1
+      fi
       echo "Physical Volume detectado: $PV_PART"
 
       DISK_DEV=$(lsblk -no pkname "$PV_PART")
@@ -27,7 +31,12 @@ jobs:
       echo "Número de partición: $PART_NUM"
 
       echo "=== Paso 2: Ampliar partición física si es necesario ==="
-      sudo growpart "/dev/$DISK_DEV" "$PART_NUM" || echo "growpart no hizo cambios o ya estaba extendida"
+      if command -v growpart >/dev/null; then
+        sudo growpart "/dev/$DISK_DEV" "$PART_NUM" || echo "growpart no hizo cambios"
+      else
+        echo "growpart no está instalado. Intenta instalar el paquete cloud-utils-growpart."
+        exit 1
+      fi
 
       echo "=== Paso 3: Redimensionar Physical Volume (PV) ==="
       sudo pvresize "$PV_PART"
