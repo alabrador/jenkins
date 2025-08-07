@@ -1,41 +1,43 @@
 trigger:
-- none  # O cambia a 'main' si quieres que se ejecute con cada push
+- main
 
 pool:
-  name: Default  # Asegúrate de que 'testlinux' esté en este pool
+  name: Default  # Asegúrate de que el agente testlinux esté en este pool
 
 jobs:
-- job: ExpandirRootPartition
-  displayName: "Expandir partición raíz automáticamente"
-  timeoutInMinutes: 20
-
+- job: ExpandRootDisk
+  displayName: Expandir partición raíz automáticamente
   steps:
   - script: |
-      echo "=== Información inicial del disco ==="
+      set -eux
+
+      echo "=== Información del disco ==="
       lsblk
       df -h /
-      echo ""
 
-      echo "=== Expandir partición /dev/sda3 ==="
+      echo "=== Paso 1: Ampliar partición física (sda3) ==="
       sudo growpart /dev/sda 3
 
-      echo "=== Estado tras growpart ==="
-      lsblk
-      echo ""
-
-      echo "=== Redimensionar el Physical Volume ==="
+      echo "=== Paso 2: Redimensionar Physical Volume (PV) ==="
       sudo pvresize /dev/sda3
 
-      echo "=== Expandir Logical Volume ==="
+      echo "=== Paso 3: Extender Logical Volume (LV) ==="
       sudo lvextend -l +100%FREE /dev/cs_testlinux/root
 
-      echo "=== Redimensionar sistema de archivos ==="
-      sudo resize2fs /dev/cs_testlinux/root
+      echo "=== Paso 4: Detectar tipo de FS y redimensionar ==="
+      FS_TYPE=$(df -T / | tail -1 | awk '{print $2}')
+      echo "Tipo de sistema de archivos: $FS_TYPE"
 
-      echo "=== Verificación final ==="
+      if [ "$FS_TYPE" = "ext4" ]; then
+        sudo resize2fs /dev/cs_testlinux/root
+      elif [ "$FS_TYPE" = "xfs" ]; then
+        sudo xfs_growfs /
+      else
+        echo "Sistema de archivos no compatible: $FS_TYPE"
+        exit 1
+      fi
+
+      echo "=== Información final ==="
       lsblk
       df -h /
-      vgs
-      lvs
-    displayName: "Expandir partición raíz"
-    shell: bash
+    displayName: "Expandir partición raíz automáticamente"
