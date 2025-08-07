@@ -17,27 +17,44 @@ jobs:
       lsblk
       df -h /
 
-      echo "=== Paso 1: Ampliar partición física (sda3) ==="
-      sudo growpart /dev/sda 3
+      echo "=== Paso 1: Detectar la partición del Physical Volume (PV) ==="
+      PV_PART=$(pvs --noheadings -o pv_name | xargs)
+      echo "Partición detectada para el PV: $PV_PART"
 
-      echo "=== Paso 2: Redimensionar Physical Volume (PV) ==="
-      sudo pvresize /dev/sda3
+      DISK_DEV=$(lsblk -no pkname "$PV_PART")
+      PART_NUM=$(lsblk -no name "$PV_PART" | grep -o '[0-9]*$')
+      echo "Disco: /dev/$DISK_DEV - Partición: $PART_NUM"
 
-      echo "=== Paso 3: Extender Logical Volume (LV) ==="
-      sudo lvextend -l +100%FREE /dev/cs_testlinux/root
+      echo "=== Paso 2: Ampliar la partición física ($PV_PART) ==="
+      sudo growpart "/dev/$DISK_DEV" "$PART_NUM"
 
-      echo "=== Paso 4: Detectar tipo de FS y redimensionar ==="
+      echo "=== Paso 3: Redimensionar Physical Volume (PV) ==="
+      sudo pvresize "$PV_PART"
+
+      echo "=== Paso 4: Extender Logical Volume (LV) ==="
+      LV_PATH=$(lvs --noheadings -o lv_path | grep root | xargs)
+      echo "LV detectado: $LV_PATH"
+      sudo lvextend -l +100%FREE "$LV_PATH"
+
+      echo "=== Paso 5: Detectar tipo de FS y redimensionar ==="
       FS_TYPE=$(df -T / | tail -1 | awk '{print $2}')
       echo "Tipo de sistema de archivos: $FS_TYPE"
 
-      if [ "$FS_TYPE" = "ext4" ]; then
-        sudo resize2fs /dev/cs_testlinux/root
-      elif [ "$FS_TYPE" = "xfs" ]; then
-        sudo xfs_growfs /
-      else
-        echo "Sistema de archivos no compatible: $FS_TYPE"
-        exit 1
-      fi
+      case "$FS_TYPE" in
+        ext4)
+          sudo resize2fs "$LV_PATH"
+          ;;
+        xfs)
+          sudo xfs_growfs /
+          ;;
+        btrfs)
+          sudo btrfs filesystem resize max /
+          ;;
+        *)
+          echo "Sistema de archivos no compatible: $FS_TYPE"
+          exit 1
+          ;;
+      esac
 
       echo "=== Información final ==="
       lsblk
