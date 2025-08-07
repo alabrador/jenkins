@@ -8,7 +8,7 @@ pool:
 
 jobs:
 - job: InstallPackages
-  displayName: Instalar paquetes en Linux (cloud-utils-growpart y git)
+  displayName: Instalar paquetes en Linux (cloud-utils-growpart)
   steps:
   - script: |
       set -eux
