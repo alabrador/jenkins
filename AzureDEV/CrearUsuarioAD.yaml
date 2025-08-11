@@ -1,4 +1,4 @@
-trigger: none  # Solo manual
+trigger: none
 
 parameters:
   - name: firstName
@@ -7,7 +7,7 @@ parameters:
     default: ""
 
   - name: lastName
-    displayName: "Apellido"
+    displayName: "Apellidos"
     type: string
     default: ""
 
@@ -21,8 +21,55 @@ parameters:
     type: string
     default: ""
 
+  - name: jobTitle
+    displayName: "Cargo"
+    type: string
+    default: ""
+
+  - name: description
+    displayName: "Descripción de Cargo"
+    type: string
+    default: ""
+
+  - name: office
+    displayName: "Oficina"
+    type: string
+    default: "MECO"
+    values:
+      - MECO
+      - MATEO INURRIA
+      - ITALIA
+
+  - name: email
+    displayName: "Correo electrónico"
+    type: string
+    default: ""
+
+  - name: pager
+    displayName: "Centro de costo"
+    type: string
+    default: ""
+
+  - name: department
+    displayName: "Departamento"
+    type: string
+    default: ""
+
+  - name: company
+    displayName: "Compañía"
+    type: string
+    default: "ALTER S.L."
+    values:
+      - ALTER S.L.
+      - NUTRIBEN
+
+  - name: manager
+    displayName: "Manager (sAMAccountName)"
+    type: string
+    default: ""
+
 pool:
-  name: 'Default'  # Cambia si tu agente DC01 está en otro pool
+  name: 'Default'
   demands:
     - agent.name -equals DC01
 
@@ -30,31 +77,66 @@ steps:
   - powershell: |
       Import-Module ActiveDirectory
 
-      if ("${{ parameters.firstName }}" -eq "" -or "${{ parameters.lastName }}" -eq "" -or "${{ parameters.accountName }}" -eq "" -or "${{ parameters.password }}" -eq "") {
-        Write-Error "❌ Todos los parámetros son obligatorios."
+      # Validación de campos obligatorios
+      $required = @(
+        "${{ parameters.firstName }}",
+        "${{ parameters.lastName }}",
+        "${{ parameters.accountName }}",
+        "${{ parameters.password }}",
+        "${{ parameters.email }}"
+      )
+      if ($required -contains "") {
+        Write-Error "❌ Faltan parámetros obligatorios (Nombre, Apellidos, Cuenta, Contraseña, Email)"
         exit 1
       }
 
-      $SecurePass = ConvertTo-SecureString "${{ parameters.password }}" -AsPlainText -Force
       $DisplayName = "${{ parameters.firstName }} ${{ parameters.lastName }}"
-
-      # Ruta a la OU donde crear el usuario
+      $SecurePass = ConvertTo-SecureString "${{ parameters.password }}" -AsPlainText -Force
       $OUPath = "OU=CITRIX,OU=USUARIOS,OU=G_ALTER,DC=alter,DC=es"
 
+      # Validar que no exista
       if (Get-ADUser -Filter { SamAccountName -eq "${{ parameters.accountName }}" }) {
         Write-Error "❌ El usuario '${{ parameters.accountName }}' ya existe."
         exit 1
       }
 
+      # Obtener DN del manager si se indicó
+      $ManagerDN = $null
+      if ("${{ parameters.manager }}" -ne "") {
+        $mgr = Get-ADUser -Filter { SamAccountName -eq "${{ parameters.manager }}" }
+        if ($mgr) {
+          $ManagerDN = $mgr.DistinguishedName
+        } else {
+          Write-Error "⚠️ Manager '${{ parameters.manager }}' no encontrado, se omitirá."
+        }
+      }
+
+      # Crear usuario
       New-ADUser `
         -Name $DisplayName `
+        -DisplayName $DisplayName `
         -GivenName "${{ parameters.firstName }}" `
         -Surname "${{ parameters.lastName }}" `
         -SamAccountName "${{ parameters.accountName }}" `
-        -UserPrincipalName "${{ parameters.accountName }}@midominio.local" `
+        -UserPrincipalName "${{ parameters.accountName }}@alter.es" `
         -AccountPassword $SecurePass `
         -Enabled $true `
-        -Path $OUPath
+        -Path $OUPath `
+        -Description "${{ parameters.description }}" `
+        -Office "${{ parameters.office }}" `
+        -EmailAddress "${{ parameters.email }}" `
+        -Pager "${{ parameters.pager }}" `
+        -Title "${{ parameters.jobTitle }}" `
+        -Department "${{ parameters.department }}" `
+        -Company "${{ parameters.company }}" `
+        -Manager $ManagerDN `
+        -OtherAttributes @{
+            proxyAddresses = @(
+              "SMTP:${{ parameters.email }}",
+              "smtp:${{ parameters.email }}",
+              "smtp:${{ parameters.accountName }}@grupoalter.onmicrosoft.com"
+            )
+        }
 
       Write-Host "✅ Usuario creado: $DisplayName en $OUPath"
-    displayName: "Crear usuario en AD"
+    displayName: "Crear usuario en AD con datos completos"
