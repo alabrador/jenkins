@@ -39,7 +39,7 @@ steps:
       $DisplayName = "${{ parameters.firstName }} ${{ parameters.lastName }}"
 
       # Ruta a la OU donde crear el usuario
-      $OUPath = "OU=CITRIX,OU=USUARIO,OU=G_ALTER,DC=alter,DC=es"
+      $OUPath = "OU=CITRIX,OU=USUARIOS,OU=G_ALTER,DC=alter,DC=es"
 
       if (Get-ADUser -Filter { SamAccountName -eq "${{ parameters.accountName }}" }) {
         Write-Error "❌ El usuario '${{ parameters.accountName }}' ya existe."
