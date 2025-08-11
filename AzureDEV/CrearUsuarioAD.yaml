@@ -1,4 +1,4 @@
-trigger: none  # Solo ejecución manual
+trigger: none  # Solo manual
 
 parameters:
   - name: firstName
@@ -20,7 +20,6 @@ parameters:
     displayName: "Contraseña"
     type: string
     default: ""
-    # Azure DevOps no tiene 'secret' en parameters, solo en variables
 
 pool:
   name: 'Default'  # Cambia si tu agente DC01 está en otro pool
@@ -39,6 +38,9 @@ steps:
       $SecurePass = ConvertTo-SecureString "${{ parameters.password }}" -AsPlainText -Force
       $DisplayName = "${{ parameters.firstName }} ${{ parameters.lastName }}"
 
+      # Ruta a la OU donde crear el usuario
+      $OUPath = "OU=CITRIX,OU=USUARIO,OU=G_ALTER,DC=alter,DC=es"
+
       if (Get-ADUser -Filter { SamAccountName -eq "${{ parameters.accountName }}" }) {
         Write-Error "❌ El usuario '${{ parameters.accountName }}' ya existe."
         exit 1
@@ -51,7 +53,8 @@ steps:
         -SamAccountName "${{ parameters.accountName }}" `
         -UserPrincipalName "${{ parameters.accountName }}@midominio.local" `
         -AccountPassword $SecurePass `
-        -Enabled $true
+        -Enabled $true `
+        -Path $OUPath
 
-      Write-Host "✅ Usuario creado: $DisplayName"
+      Write-Host "✅ Usuario creado: $DisplayName en $OUPath"
     displayName: "Crear usuario en AD"
