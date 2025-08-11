@@ -82,7 +82,7 @@ steps:
   - powershell: |
       Import-Module ActiveDirectory
 
-      # Validación de parámetros obligatorios
+      # Validar parámetros obligatorios
       $required = @(
         "${{ parameters.firstName }}",
         "${{ parameters.lastName }}",
@@ -96,11 +96,9 @@ steps:
       }
 
       $DisplayName = "${{ parameters.firstName }} ${{ parameters.lastName }}"
-      $CleanCN = $DisplayName -replace '\s', ''  # Limpia espacios para CN
-
-      $SecurePass = ConvertTo-SecureString "${{ parameters.password }}" -AsPlainText -Force
       $OUPath = "OU=CITRIX,OU=USUARIOS,OU=G_ALTER,DC=alter,DC=es"
       $upn = "${{ parameters.accountName }}@alter.es"
+      $SecurePass = ConvertTo-SecureString "${{ parameters.password }}" -AsPlainText -Force
 
       # Validar que no exista objeto con mismo CN en OU destino
       if (Get-ADObject -SearchBase $OUPath -Filter { Name -eq $DisplayName }) {
@@ -169,7 +167,7 @@ steps:
         OtherAttributes = $otherAttrs
       }
 
-      # Convertir parámetro testRun a booleano PowerShell
+      # Convertir parámetro testRun a booleano de PowerShell
       $TestRun = [bool]::Parse("${{ parameters.testRun }}")
 
       if ($TestRun) {
