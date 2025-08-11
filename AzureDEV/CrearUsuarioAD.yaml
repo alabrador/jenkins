@@ -4,20 +4,23 @@ parameters:
   - name: firstName
     displayName: "Nombre"
     type: string
+    default: ""
 
   - name: lastName
     displayName: "Apellido"
     type: string
+    default: ""
 
   - name: accountName
     displayName: "Nombre de cuenta (sAMAccountName)"
     type: string
+    default: ""
 
   - name: password
     displayName: "Contraseña"
     type: string
     default: ""
-    values: [] # No valida, pero oculta la UI
+    # Azure DevOps no tiene 'secret' en parameters, solo en variables
 
 pool:
   name: 'Default'  # Cambia si tu agente DC01 está en otro pool
@@ -28,8 +31,18 @@ steps:
   - powershell: |
       Import-Module ActiveDirectory
 
+      if ("${{ parameters.firstName }}" -eq "" -or "${{ parameters.lastName }}" -eq "" -or "${{ parameters.accountName }}" -eq "" -or "${{ parameters.password }}" -eq "") {
+        Write-Error "❌ Todos los parámetros son obligatorios."
+        exit 1
+      }
+
       $SecurePass = ConvertTo-SecureString "${{ parameters.password }}" -AsPlainText -Force
       $DisplayName = "${{ parameters.firstName }} ${{ parameters.lastName }}"
+
+      if (Get-ADUser -Filter { SamAccountName -eq "${{ parameters.accountName }}" }) {
+        Write-Error "❌ El usuario '${{ parameters.accountName }}' ya existe."
+        exit 1
+      }
 
       New-ADUser `
         -Name $DisplayName `
