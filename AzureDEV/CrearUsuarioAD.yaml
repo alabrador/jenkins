@@ -96,8 +96,7 @@ steps:
       }
 
       $DisplayName = "${{ parameters.firstName }} ${{ parameters.lastName }}"
-      # Limpieza simple para el CN (sin espacios)
-      $CleanCN = $DisplayName -replace '\s', ''
+      $CleanCN = $DisplayName -replace '\s', ''  # Limpia espacios para CN
 
       $SecurePass = ConvertTo-SecureString "${{ parameters.password }}" -AsPlainText -Force
       $OUPath = "OU=CITRIX,OU=USUARIOS,OU=G_ALTER,DC=alter,DC=es"
@@ -149,7 +148,7 @@ steps:
         )
       }
 
-      # Preparar argumentos para New-ADUser
+      # Preparar parámetros para New-ADUser
       $newUserParams = @{
         Name = $DisplayName
         DisplayName = $DisplayName
@@ -170,7 +169,10 @@ steps:
         OtherAttributes = $otherAttrs
       }
 
-      if (${{ parameters.testRun }}) {
+      # Convertir parámetro testRun a booleano PowerShell
+      $TestRun = [bool]::Parse("${{ parameters.testRun }}")
+
+      if ($TestRun) {
         Write-Host "⚠️ Modo prueba activo, no se creará el usuario realmente. Ejecutando con -WhatIf"
         New-ADUser @newUserParams -WhatIf
       }
