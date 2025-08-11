@@ -1,0 +1,44 @@
+trigger: none  # Solo ejecución manual
+
+parameters:
+  - name: firstName
+    displayName: "Nombre"
+    type: string
+
+  - name: lastName
+    displayName: "Apellido"
+    type: string
+
+  - name: accountName
+    displayName: "Nombre de cuenta (sAMAccountName)"
+    type: string
+
+  - name: password
+    displayName: "Contraseña"
+    type: string
+    default: ""
+    values: [] # No valida, pero oculta la UI
+
+pool:
+  name: 'Default'  # Cambia si tu agente DC01 está en otro pool
+  demands:
+    - agent.name -equals DC01
+
+steps:
+  - powershell: |
+      Import-Module ActiveDirectory
+
+      $SecurePass = ConvertTo-SecureString "${{ parameters.password }}" -AsPlainText -Force
+      $DisplayName = "${{ parameters.firstName }} ${{ parameters.lastName }}"
+
+      New-ADUser `
+        -Name $DisplayName `
+        -GivenName "${{ parameters.firstName }}" `
+        -Surname "${{ parameters.lastName }}" `
+        -SamAccountName "${{ parameters.accountName }}" `
+        -UserPrincipalName "${{ parameters.accountName }}@midominio.local" `
+        -AccountPassword $SecurePass `
+        -Enabled $true
+
+      Write-Host "✅ Usuario creado: $DisplayName"
+    displayName: "Crear usuario en AD"
