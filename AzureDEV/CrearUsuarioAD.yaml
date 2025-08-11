@@ -68,6 +68,11 @@ parameters:
     type: string
     default: ""
 
+  - name: testRun
+    displayName: "Ejecutar en modo prueba (-WhatIf)"
+    type: boolean
+    default: true
+
 pool:
   name: 'Default'
   demands:
@@ -91,22 +96,32 @@ steps:
       }
 
       $DisplayName = "${{ parameters.firstName }} ${{ parameters.lastName }}"
+      # Limpieza simple para el CN (sin espacios)
+      $CleanCN = $DisplayName -replace '\s', ''
+
       $SecurePass = ConvertTo-SecureString "${{ parameters.password }}" -AsPlainText -Force
       $OUPath = "OU=CITRIX,OU=USUARIOS,OU=G_ALTER,DC=alter,DC=es"
       $upn = "${{ parameters.accountName }}@alter.es"
 
-      # Validaciones de unicidad
+      # Validar que no exista objeto con mismo CN en OU destino
+      if (Get-ADObject -SearchBase $OUPath -Filter { Name -eq $DisplayName }) {
+        Write-Error "❌ Ya existe un objeto con Name (CN) '$DisplayName' en la OU destino."
+        exit 1
+      }
 
+      # Validar sAMAccountName
       if (Get-ADUser -Filter { SamAccountName -eq "${{ parameters.accountName }}" }) {
         Write-Error "❌ El usuario '${{ parameters.accountName }}' ya existe."
         exit 1
       }
 
+      # Validar UPN
       if (Get-ADUser -Filter { UserPrincipalName -eq $upn }) {
         Write-Error "❌ El UserPrincipalName '$upn' ya existe."
         exit 1
       }
 
+      # Validar proxyAddresses
       $existingProxy = Get-ADUser -LDAPFilter "(proxyAddresses=SMTP:${{ parameters.email }})"
       if ($existingProxy) {
         Write-Error "❌ La dirección SMTP principal '${{ parameters.email }}' ya está asignada a otro usuario."
@@ -124,7 +139,7 @@ steps:
         }
       }
 
-      # Definir atributos adicionales en una variable para evitar errores de salto de línea
+      # Definir atributos adicionales
       $otherAttrs = @{
         pager = "${{ parameters.pager }}"
         proxyAddresses = @(
@@ -134,25 +149,33 @@ steps:
         )
       }
 
-      # Crear usuario
-      New-ADUser `
-        -Name $DisplayName `
-        -DisplayName $DisplayName `
-        -GivenName "${{ parameters.firstName }}" `
-        -Surname "${{ parameters.lastName }}" `
-        -SamAccountName "${{ parameters.accountName }}" `
-        -UserPrincipalName $upn `
-        -AccountPassword $SecurePass `
-        -Enabled $true `
-        -Path $OUPath `
-        -Description "${{ parameters.description }}" `
-        -Office "${{ parameters.office }}" `
-        -EmailAddress "${{ parameters.email }}" `
-        -Title "${{ parameters.jobTitle }}" `
-        -Department "${{ parameters.department }}" `
-        -Company "${{ parameters.company }}" `
-        -Manager $ManagerDN `
-        -OtherAttributes $otherAttrs
+      # Preparar argumentos para New-ADUser
+      $newUserParams = @{
+        Name = $DisplayName
+        DisplayName = $DisplayName
+        GivenName = "${{ parameters.firstName }}"
+        Surname = "${{ parameters.lastName }}"
+        SamAccountName = "${{ parameters.accountName }}"
+        UserPrincipalName = $upn
+        AccountPassword = $SecurePass
+        Enabled = $true
+        Path = $OUPath
+        Description = "${{ parameters.description }}"
+        Office = "${{ parameters.office }}"
+        EmailAddress = "${{ parameters.email }}"
+        Title = "${{ parameters.jobTitle }}"
+        Department = "${{ parameters.department }}"
+        Company = "${{ parameters.company }}"
+        Manager = $ManagerDN
+        OtherAttributes = $otherAttrs
+      }
 
-      Write-Host "✅ Usuario creado: $DisplayName en $OUPath"
+      if (${{ parameters.testRun }}) {
+        Write-Host "⚠️ Modo prueba activo, no se creará el usuario realmente. Ejecutando con -WhatIf"
+        New-ADUser @newUserParams -WhatIf
+      }
+      else {
+        New-ADUser @newUserParams
+        Write-Host "✅ Usuario creado: $DisplayName en $OUPath"
+      }
     displayName: "Crear usuario en AD con validaciones"
