@@ -27,7 +27,7 @@ parameters:
     default: ""
 
   - name: description
-    displayName: "Descripción de Cargo"
+    displayName: "Descripción (cargo)"
     type: string
     default: ""
 
@@ -69,7 +69,7 @@ parameters:
     default: ""
 
 pool:
-  name: 'Default'
+  name: 'Default'   # Ajusta al pool donde esté DC01
   demands:
     - agent.name -equals DC01
 
@@ -77,7 +77,7 @@ steps:
   - powershell: |
       Import-Module ActiveDirectory
 
-      # Validación de campos obligatorios
+      # Validación de parámetros obligatorios
       $required = @(
         "${{ parameters.firstName }}",
         "${{ parameters.lastName }}",
@@ -94,13 +94,13 @@ steps:
       $SecurePass = ConvertTo-SecureString "${{ parameters.password }}" -AsPlainText -Force
       $OUPath = "OU=CITRIX,OU=USUARIOS,OU=G_ALTER,DC=alter,DC=es"
 
-      # Validar que no exista
+      # Verificar si el usuario ya existe
       if (Get-ADUser -Filter { SamAccountName -eq "${{ parameters.accountName }}" }) {
         Write-Error "❌ El usuario '${{ parameters.accountName }}' ya existe."
         exit 1
       }
 
-      # Obtener DN del manager si se indicó
+      # Buscar DN del manager si se indicó
       $ManagerDN = $null
       if ("${{ parameters.manager }}" -ne "") {
         $mgr = Get-ADUser -Filter { SamAccountName -eq "${{ parameters.manager }}" }
@@ -125,12 +125,12 @@ steps:
         -Description "${{ parameters.description }}" `
         -Office "${{ parameters.office }}" `
         -EmailAddress "${{ parameters.email }}" `
-        -Pager "${{ parameters.pager }}" `
         -Title "${{ parameters.jobTitle }}" `
         -Department "${{ parameters.department }}" `
         -Company "${{ parameters.company }}" `
         -Manager $ManagerDN `
         -OtherAttributes @{
+            pager = "${{ parameters.pager }}"
             proxyAddresses = @(
               "SMTP:${{ parameters.email }}",
               "smtp:${{ parameters.email }}",
@@ -139,4 +139,4 @@ steps:
         }
 
       Write-Host "✅ Usuario creado: $DisplayName en $OUPath"
-    displayName: "Crear usuario en AD con datos completos"
+    displayName: "Crear usuario en AD con todos los datos"
