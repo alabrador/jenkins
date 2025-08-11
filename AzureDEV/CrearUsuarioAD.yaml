@@ -69,7 +69,7 @@ parameters:
     default: ""
 
 pool:
-  name: 'Default'   # Ajusta al pool donde esté DC01
+  name: 'Default'
   demands:
     - agent.name -equals DC01
 
@@ -93,10 +93,24 @@ steps:
       $DisplayName = "${{ parameters.firstName }} ${{ parameters.lastName }}"
       $SecurePass = ConvertTo-SecureString "${{ parameters.password }}" -AsPlainText -Force
       $OUPath = "OU=CITRIX,OU=USUARIOS,OU=G_ALTER,DC=alter,DC=es"
+      $upn = "${{ parameters.accountName }}@alter.es"
 
-      # Verificar si el usuario ya existe
+      # Check sAMAccountName
       if (Get-ADUser -Filter { SamAccountName -eq "${{ parameters.accountName }}" }) {
         Write-Error "❌ El usuario '${{ parameters.accountName }}' ya existe."
+        exit 1
+      }
+
+      # Check UserPrincipalName
+      if (Get-ADUser -Filter { UserPrincipalName -eq $upn }) {
+        Write-Error "❌ El UserPrincipalName '$upn' ya existe."
+        exit 1
+      }
+
+      # Check proxyAddresses SMTP principal
+      $existingProxy = Get-ADUser -LDAPFilter "(proxyAddresses=SMTP:${{ parameters.email }})"
+      if ($existingProxy) {
+        Write-Error "❌ La dirección SMTP principal '${{ parameters.email }}' ya está asignada a otro usuario."
         exit 1
       }
 
@@ -107,7 +121,7 @@ steps:
         if ($mgr) {
           $ManagerDN = $mgr.DistinguishedName
         } else {
-          Write-Error "⚠️ Manager '${{ parameters.manager }}' no encontrado, se omitirá."
+          Write-Warning "⚠️ Manager '${{ parameters.manager }}' no encontrado, se omitirá."
         }
       }
 
@@ -118,7 +132,7 @@ steps:
         -GivenName "${{ parameters.firstName }}" `
         -Surname "${{ parameters.lastName }}" `
         -SamAccountName "${{ parameters.accountName }}" `
-        -UserPrincipalName "${{ parameters.accountName }}@alter.es" `
+        -UserPrincipalName $upn `
         -AccountPassword $SecurePass `
         -Enabled $true `
         -Path $OUPath `
@@ -139,4 +153,4 @@ steps:
         }
 
       Write-Host "✅ Usuario creado: $DisplayName en $OUPath"
-    displayName: "Crear usuario en AD con todos los datos"
+    displayName: "Crear usuario en AD con validaciones"
